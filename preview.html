@@ -19,17 +19,27 @@
   .phone .head { display: flex; align-items: center; gap: 8px; padding: 12px 14px; font-weight: 700; font-size: 14px; }
   .phone .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); }
   .phone img { width: 100%; display: block; aspect-ratio: 1; object-fit: cover; }
-  .phone .shorts { aspect-ratio: 9 / 16; position: relative; background: #111; }
-  .phone .shorts img { height: 100%; aspect-ratio: auto; opacity: .75; }
-  .phone .shorts p {
-    position: absolute; left: 16px; right: 16px; bottom: 24px; margin: 0;
-    color: #fff; font-weight: 700; font-size: 18px; text-shadow: 0 1px 4px rgba(0, 0, 0, .6);
-  }
   .phone .text { padding: 12px 14px; white-space: pre-wrap; font-size: 14px; }
   .phone .text .tags { color: #2f5fa8; }
-  .phone.blog { border-radius: 8px; max-width: 560px; }
+  .phone.blog { border-radius: 8px; max-width: 640px; }
   .phone.blog h3 { margin: 0; padding: 16px 16px 0; font-size: 20px; }
+  .phone.blog .meta { padding: 4px 16px 0; color: var(--muted); font-size: 13px; }
+  .phone.blog .text { padding: 16px; font-size: 15px; line-height: 1.8; }
+  .phone.blog .photo { color: var(--accent); font-weight: 700; }
   .empty { text-align: center; padding: 40px 16px; }
+
+  /* 영상 · 이미지 탭 */
+  .scene { display: grid; grid-template-columns: 72px 1fr; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .scene:last-child { border-bottom: 0; }
+  .scene .thumb {
+    width: 72px; aspect-ratio: 9 / 16; border-radius: 10px; background: var(--navy); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 700; overflow: hidden;
+  }
+  .scene .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .scene .cap { font-weight: 700; margin-bottom: 4px; }
+  .scene .prompt { font-size: 13px; color: var(--muted); background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 6px 0; }
+  .steps { margin: 0; padding-left: 20px; font-size: 14px; }
+  .steps li { margin: 6px 0; }
 </style>
 </head>
 <body>
@@ -45,8 +55,15 @@
 <script src="common.js"></script>
 <script>
   let posts = [];
+  let week = null;
   const app = document.getElementById("app");
   const images = Array.from({ length: 20 }, (_, i) => `img/card-${String(i + 1).padStart(2, "0")}.webp`);
+  const TABS = [
+    { id: "instagram", name: "인스타그램" },
+    { id: "threads", name: "스레드" },
+    { id: "blog", name: "네이버 블로그" },
+    { id: "video", name: "🎬 영상 · 이미지" },
+  ];
   let channel = "instagram";
   let current;
   let image = images[0];
@@ -54,6 +71,19 @@
   function select(post) {
     current = post;
     if (post && post.image) image = post.image;
+  }
+
+  function blogText(post) {
+    return post.blog || `${post.body}\n\n자주 묻는 질문\nQ. ${post.question}\nA. ${post.body.split("\n")[0]}`;
+  }
+
+  // 쇼츠 · 릴스 · 클립에 함께 쓰는 영상 설명
+  function videoText(post) {
+    return `${post.question}\n\n${post.body.split("\n")[0]}\n\n자세한 내용은 블로그와 홈페이지에서 확인하세요.\nhttps://healing6833-jin.github.io\n\n${post.tags} #shorts`;
+  }
+
+  function fullPrompt(scene) {
+    return week && week.promptStyle ? `${scene.prompt}, ${week.promptStyle}` : scene.prompt;
   }
 
   // 채널마다 같은 내용을 다른 형식으로
@@ -64,9 +94,44 @@
         const parts = post.body.split(/\n\s*\n/);
         return [`${post.question}\n${parts[0] || ""}`, ...parts.slice(1)].map((p, i) => `(${i + 1}) ${p}`).join("\n\n");
       }
-      case "blog": return `${post.body}\n\n자주 묻는 질문\nQ. ${post.question}\nA. ${post.body.split("\n")[0]}`;
-      case "youtube": return `${post.question.slice(0, 90)} #shorts`;
+      case "blog": return blogText(post);
+      case "video": return videoText(post);
     }
+  }
+
+  function videoScreen(post) {
+    const scenes = post.scenes || [];
+    const rows = [
+      `<div class="scene"><div class="thumb"><img src="${image}" alt=""></div><div>
+        <div class="cap">대표 사진 · ${escapeHtml(post.question)}</div>
+        <div class="muted">첫 장면과 마지막 장면에 씁니다. 아래 「대표 이미지 저장」으로 받으세요.</div></div></div>`,
+      ...scenes.map((s, i) => `<div class="scene"><div class="thumb">${i + 1}</div><div>
+        <div class="cap">자막: ${escapeHtml(s.caption)}</div>
+        <div class="prompt">${escapeHtml(fullPrompt(s))}</div>
+        <button class="btn ghost small" data-prompt="${i}">프롬프트 복사</button></div></div>`),
+    ].join("");
+    return `
+      <div class="card">
+        <h2>장면 구성 (사진 6장 · 약 20초)</h2>
+        <p class="muted" style="margin-top:0">대표 사진 → 사진 1~5 → 대표 사진 순서, 장면마다 3초 정도. 사진 1~5는 아래 프롬프트로 이미지 생성 AI(ChatGPT, Gemini 등)에서 만드세요. 블로그 본문의 [사진 1]~[사진 5] 자리에도 같은 사진을 넣으면 됩니다.</p>
+        ${scenes.length ? rows : `<p class="muted">이 글에는 장면 정보가 없습니다.</p>`}
+        ${scenes.length ? `<div class="row" style="margin-top:12px"><button class="btn small" id="copy-prompts">프롬프트 5개 모두 복사</button></div>` : ""}
+      </div>
+      <div class="card">
+        <h2>Edits 앱으로 영상 만들기</h2>
+        <ol class="steps">
+          <li>휴대폰에 대표 사진과 사진 1~5를 저장합니다.</li>
+          <li>Edits 앱에서 <b>새 프로젝트</b> → 사진 6장을 순서대로 고릅니다 (마지막에 대표 사진 한 번 더).</li>
+          <li>장면마다 길이를 3초 정도로 맞추고, 위의 <b>자막</b>을 텍스트로 넣습니다.</li>
+          <li>앱 안의 음악을 깔고, 내보내기 합니다.</li>
+          <li>같은 영상을 <b>인스타 릴스</b>(Edits에서 바로 공유), <b>유튜브 쇼츠</b>, <b>네이버 클립</b>에 올리고 아래 설명 글을 붙여넣습니다.</li>
+          <li>발행 기록에서 세 칸을 체크합니다.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h2>영상 설명 글 (쇼츠 · 릴스 · 클립 공통)</h2>
+        <div class="prompt" style="white-space:pre-wrap;font-size:14px">${escapeHtml(videoText(post))}</div>
+      </div>`;
   }
 
   function render() {
@@ -76,12 +141,13 @@
     }
     const text = textFor(channel, current);
     let screen;
-    if (channel === "youtube") {
-      screen = `<div class="phone"><div class="shorts"><img src="${image}" alt=""><p>${escapeHtml(current.question)}</p></div>
-        <div class="text">${escapeHtml(text)}</div></div>`;
+    if (channel === "video") {
+      screen = videoScreen(current);
     } else if (channel === "blog") {
+      const body = escapeHtml(text).replace(/(\[(?:대표 사진|사진 \d)[^\]]*\])/g, '<span class="photo">$1</span>');
       screen = `<div class="phone blog"><h3>${escapeHtml(current.question)}</h3>
-        <div class="text">${escapeHtml(text)}</div><img src="${image}" alt=""></div>`;
+        <div class="meta">공백 포함 ${text.length}자 · 공백 제외 ${text.replace(/\s/g, "").length}자</div>
+        <img src="${image}" alt=""><div class="text">${body}</div></div>`;
     } else {
       const tagged = escapeHtml(text).replace(/(#\S+)/g, '<span class="tags">$1</span>');
       screen = `<div class="phone"><div class="head"><span class="avatar"></span>joyhealing6833</div>
@@ -93,28 +159,29 @@
       <div class="card">
         <label for="pick">글 선택</label>
         <select id="pick">${posts.map((p) => `<option value="${p.id}" ${p.id === current.id ? "selected" : ""}>${p.date}${p.day ? ` (${p.day})` : ""} · ${escapeHtml(p.question)}</option>`).join("")}</select>
-        <label for="img">카드 이미지</label>
+        <label for="img">대표 이미지</label>
         <select id="img">${images.map((src, i) => `<option value="${src}" ${src === image ? "selected" : ""}>향기카드 ${i + 1}</option>`).join("")}</select>
       </div>
-      <div class="tabs">${CHANNELS.map((ch) => `<button data-ch="${ch.id}" class="${ch.id === channel ? "on" : ""}">${ch.name}</button>`).join("")}</div>
+      <div class="tabs">${TABS.map((t) => `<button data-ch="${t.id}" class="${t.id === channel ? "on" : ""}">${t.name}</button>`).join("")}</div>
       ${screen}
       <div class="row" style="justify-content:center;margin-top:16px">
-        <button class="btn" id="copy">글 복사하기</button>
-        <a class="btn ghost" href="${image}" download>이미지 저장</a>
+        <button class="btn" id="copy">${channel === "video" ? "영상 설명 글 복사" : "글 복사하기"}</button>
+        <a class="btn ghost" href="${image}" download>대표 이미지 저장</a>
         <a class="btn ghost" href="log.html">발행 기록으로 →</a>
       </div>`;
 
     document.getElementById("pick").onchange = (e) => { select(posts.find((p) => p.id == e.target.value)); render(); };
     document.getElementById("img").onchange = (e) => { image = e.target.value; render(); };
     app.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => { channel = b.dataset.ch; render(); }));
-    document.getElementById("copy").onclick = async () => {
-      try { await navigator.clipboard.writeText(text); toast("복사했습니다. 앱에 붙여넣어 주세요"); }
-      catch { toast("복사가 막혀 있습니다. 글을 직접 선택해 주세요"); }
-    };
+    document.getElementById("copy").onclick = () => copyText(text);
+    app.querySelectorAll("[data-prompt]").forEach((b) => (b.onclick = () => copyText(fullPrompt(current.scenes[b.dataset.prompt]))));
+    const all = document.getElementById("copy-prompts");
+    if (all) all.onclick = () => copyText(current.scenes.map((s, i) => `[사진 ${i + 1}] ${fullPrompt(s)}`).join("\n\n"));
   }
 
   // 주소에 ?id=가 있으면 그 글, 없으면 오늘 글, 그것도 없으면 맨 위 글
-  syncWeek().then(() => {
+  syncWeek().then((w) => {
+    week = w;
     posts = loadPosts();
     const id = new URLSearchParams(location.search).get("id");
     select(posts.find((p) => String(p.id) === id) || posts.find((p) => p.date === todayString()) || posts[0]);

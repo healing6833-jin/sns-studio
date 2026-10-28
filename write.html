@@ -69,7 +69,7 @@
       .map(([ok, label]) => `<li><span class="tag ${ok ? "ok" : "warn"}">${ok ? "통과" : "확인"}</span> ${escapeHtml(label)}</li>`)
       .join("");
 
-    document.getElementById("counts").innerHTML = CHANNELS.map((ch) => {
+    document.getElementById("counts").innerHTML = CHANNELS.filter((ch) => ch.limit).map((ch) => {
       const len = ch.id === "youtube" ? $q.value.length : text.length;
       return `<div class="${len > ch.limit ? "over" : ""}">${ch.name}<b>${len} / ${ch.limit}</b>${ch.note || ""}</div>`;
     }).join("");
