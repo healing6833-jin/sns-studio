@@ -22,6 +22,11 @@
     <a class="home-btn" href="index.html">🏠 HOME</a>
   </header>
 
+  <div class="card" id="toc-card" hidden>
+    <h2 id="toc-title">이번 주 목차</h2>
+    <div class="table-scroll"><table id="toc"></table></div>
+  </div>
+
   <div class="card">
     <h2>요일별 주제</h2>
     <p class="muted" style="margin-top:0">오늘은 테두리로 표시됩니다.</p>
@@ -69,6 +74,20 @@
   document.getElementById("times").innerHTML = CHANNELS.map((ch) =>
     `<tr><td>${ch.name}</td><td>${ch.time}</td><td>${FORMAT[ch.id]}</td><td>${ch.limit}자${ch.note ? ` (${ch.note})` : ""}</td></tr>`
   ).join("");
+
+  // 이번 주 목차: 누르면 그 글의 채널 미리보기로 간다
+  syncWeek().then((week) => {
+    if (!week) return;
+    const todayStr = todayString();
+    document.getElementById("toc-title").textContent = `이번 주 목차 · ${week.title}`;
+    document.getElementById("toc").innerHTML =
+      `<thead><tr><th>날짜</th><th>주제</th><th>질문</th><th></th></tr></thead><tbody>` +
+      week.posts.map((p) => `<tr${p.date === todayStr ? ' style="background:#f7ece4"' : ""}>
+        <td>${p.date.slice(5).replace("-", "/")} (${p.day})</td><td>${p.type}</td><td>${escapeHtml(p.question)}</td>
+        <td><a class="btn small" href="preview.html?id=${p.id}">보기</a></td></tr>`).join("") +
+      `</tbody>`;
+    document.getElementById("toc-card").hidden = false;
+  });
 </script>
 </body>
 </html>

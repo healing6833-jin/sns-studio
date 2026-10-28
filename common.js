@@ -23,6 +23,33 @@ function savePosts(posts) {
   try { localStorage.setItem("sns-posts", JSON.stringify(posts)); } catch {}
 }
 
+// 이번 주 콘텐츠(data/week.json)를 내 글 목록에 합친다.
+// 한 번 불러온 글은 기억해 두어, 기록에서 지운 글이 다시 생기지 않게 한다.
+async function syncWeek() {
+  try {
+    const res = await fetch("data/week.json", { cache: "no-store" });
+    if (!res.ok) return null;
+    const week = await res.json();
+    let seen;
+    try { seen = JSON.parse(localStorage.getItem("sns-imported") || "[]"); } catch { seen = []; }
+    const fresh = week.posts.filter((p) => !seen.includes(p.id));
+    if (fresh.length) {
+      const posts = [...loadPosts(), ...fresh.map((p) => ({ ...p, done: {} }))];
+      posts.sort((a, b) => b.date.localeCompare(a.date));
+      savePosts(posts);
+      try { localStorage.setItem("sns-imported", JSON.stringify([...seen, ...fresh.map((p) => p.id)])); } catch {}
+    }
+    return week;
+  } catch {
+    return null;
+  }
+}
+
+function todayString() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function findBanned(text) {
   return BANNED.filter((word) => text.includes(word));
 }
