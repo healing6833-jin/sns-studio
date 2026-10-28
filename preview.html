@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>채널 미리보기 · 훼이맵 SNS 스튜디오</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .tabs button {
+    padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--card);
+    font: inherit; font-size: 14px; cursor: pointer; color: var(--ink);
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .phone {
+    max-width: 380px; margin: 0 auto; background: #fff; border: 1px solid var(--line); border-radius: 24px;
+    overflow: hidden; box-shadow: 0 10px 30px rgba(58, 50, 38, .1);
+  }
+  .phone .head { display: flex; align-items: center; gap: 8px; padding: 12px 14px; font-weight: 700; font-size: 14px; }
+  .phone .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); }
+  .phone img { width: 100%; display: block; aspect-ratio: 1; object-fit: cover; }
+  .phone .shorts { aspect-ratio: 9 / 16; position: relative; background: #111; }
+  .phone .shorts img { height: 100%; aspect-ratio: auto; opacity: .75; }
+  .phone .shorts p {
+    position: absolute; left: 16px; right: 16px; bottom: 24px; margin: 0;
+    color: #fff; font-weight: 700; font-size: 18px; text-shadow: 0 1px 4px rgba(0, 0, 0, .6);
+  }
+  .phone .text { padding: 12px 14px; white-space: pre-wrap; font-size: 14px; }
+  .phone .text .tags { color: #2f5fa8; }
+  .phone.blog { border-radius: 8px; max-width: 560px; }
+  .phone.blog h3 { margin: 0; padding: 16px 16px 0; font-size: 20px; }
+  .empty { text-align: center; padding: 40px 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <h1>📱 채널 미리보기</h1>
+    <a class="home-btn" href="index.html">🏠 HOME</a>
+  </header>
+
+  <div id="app"></div>
+</div>
+
+<script src="common.js"></script>
+<script>
+  const posts = loadPosts();
+  const app = document.getElementById("app");
+  const images = Array.from({ length: 20 }, (_, i) => `img/card-${String(i + 1).padStart(2, "0")}.webp`);
+  let channel = "instagram";
+  let current = posts[0];
+  let image = images[0];
+
+  // 채널마다 같은 내용을 다른 형식으로
+  function textFor(id, post) {
+    switch (id) {
+      case "instagram": return `${post.question}\n\n${post.body}\n\n${post.tags}`;
+      case "threads": {
+        const parts = post.body.split(/\n\s*\n/);
+        return [`${post.question}\n${parts[0] || ""}`, ...parts.slice(1)].map((p, i) => `(${i + 1}) ${p}`).join("\n\n");
+      }
+      case "blog": return `${post.body}\n\n자주 묻는 질문\nQ. ${post.question}\nA. ${post.body.split("\n")[0]}`;
+      case "youtube": return `${post.question.slice(0, 90)} #shorts`;
+    }
+  }
+
+  function render() {
+    if (!current) {
+      app.innerHTML = `<div class="card empty"><p>아직 저장된 글이 없습니다.</p><a class="btn" href="write.html">✍️ 글쓰기로 가기</a></div>`;
+      return;
+    }
+    const text = textFor(channel, current);
+    let screen;
+    if (channel === "youtube") {
+      screen = `<div class="phone"><div class="shorts"><img src="${image}" alt=""><p>${escapeHtml(current.question)}</p></div>
+        <div class="text">${escapeHtml(text)}</div></div>`;
+    } else if (channel === "blog") {
+      screen = `<div class="phone blog"><h3>${escapeHtml(current.question)}</h3>
+        <div class="text">${escapeHtml(text)}</div><img src="${image}" alt=""></div>`;
+    } else {
+      const tagged = escapeHtml(text).replace(/(#\S+)/g, '<span class="tags">$1</span>');
+      screen = `<div class="phone"><div class="head"><span class="avatar"></span>joyhealing6833</div>
+        ${channel === "instagram" ? `<img src="${image}" alt="">` : ""}
+        <div class="text">${tagged}</div></div>`;
+    }
+
+    app.innerHTML = `
+      <div class="card">
+        <label for="pick">글 선택</label>
+        <select id="pick">${posts.map((p) => `<option value="${p.id}" ${p.id === current.id ? "selected" : ""}>${p.date} · ${escapeHtml(p.question)}</option>`).join("")}</select>
+        <label for="img">카드 이미지</label>
+        <select id="img">${images.map((src, i) => `<option value="${src}" ${src === image ? "selected" : ""}>향기카드 ${i + 1}</option>`).join("")}</select>
+      </div>
+      <div class="tabs">${CHANNELS.map((ch) => `<button data-ch="${ch.id}" class="${ch.id === channel ? "on" : ""}">${ch.name}</button>`).join("")}</div>
+      ${screen}
+      <div class="row" style="justify-content:center;margin-top:16px">
+        <button class="btn" id="copy">글 복사하기</button>
+        <a class="btn ghost" href="log.html">발행 기록으로 →</a>
+      </div>`;
+
+    document.getElementById("pick").onchange = (e) => { current = posts.find((p) => p.id == e.target.value); render(); };
+    document.getElementById("img").onchange = (e) => { image = e.target.value; render(); };
+    app.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => { channel = b.dataset.ch; render(); }));
+    document.getElementById("copy").onclick = async () => {
+      try { await navigator.clipboard.writeText(text); toast("복사했습니다. 앱에 붙여넣어 주세요"); }
+      catch { toast("복사가 막혀 있습니다. 글을 직접 선택해 주세요"); }
+    };
+  }
+
+  render();
+</script>
+</body>
+</html>

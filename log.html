@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>발행 기록 · 훼이맵 SNS 스튜디오</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+  .stats div { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; text-align: center; }
+  .stats b { display: block; font-size: 24px; color: var(--accent); }
+  td input { width: 18px; height: 18px; accent-color: var(--ok); }
+  .center { text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <h1>📋 발행 기록</h1>
+    <a class="home-btn" href="index.html">🏠 HOME</a>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="card">
+    <h2>글별 발행 체크</h2>
+    <p class="muted" style="margin-top:0">채널에 올린 뒤 칸을 체크하세요. 이 브라우저에만 저장됩니다.</p>
+    <div class="table-scroll"><table id="table"></table></div>
+  </div>
+</div>
+
+<script src="common.js"></script>
+<script>
+  let posts = loadPosts();
+
+  function render() {
+    const total = posts.length * CHANNELS.length;
+    const done = posts.reduce((n, p) => n + Object.values(p.done).filter(Boolean).length, 0);
+    const complete = posts.filter((p) => CHANNELS.every((ch) => p.done[ch.id])).length;
+    document.getElementById("stats").innerHTML =
+      `<div><b>${posts.length}</b>저장한 글</div><div><b>${done} / ${total}</b>채널 발행</div><div><b>${complete}</b>모든 채널 완료</div>`;
+
+    const table = document.getElementById("table");
+    if (!posts.length) {
+      table.innerHTML = `<tr><td class="muted">아직 저장한 글이 없습니다. <a href="write.html">글쓰기</a>에서 시작하세요.</td></tr>`;
+      return;
+    }
+    table.innerHTML =
+      `<thead><tr><th>날짜</th><th>질문</th>${CHANNELS.map((ch) => `<th class="center">${ch.name}</th>`).join("")}<th></th></tr></thead>
+      <tbody>${posts.map((p) => `<tr>
+        <td>${p.date}</td>
+        <td>${escapeHtml(p.question)}</td>
+        ${CHANNELS.map((ch) => `<td class="center"><input type="checkbox" data-id="${p.id}" data-ch="${ch.id}" ${p.done[ch.id] ? "checked" : ""} aria-label="${ch.name} 발행"></td>`).join("")}
+        <td><button class="btn ghost small" data-del="${p.id}">삭제</button></td>
+      </tr>`).join("")}</tbody>`;
+
+    table.querySelectorAll("input[type=checkbox]").forEach((box) => (box.onchange = () => {
+      const post = posts.find((p) => p.id == box.dataset.id);
+      post.done[box.dataset.ch] = box.checked;
+      savePosts(posts);
+      render();
+    }));
+    table.querySelectorAll("[data-del]").forEach((btn) => (btn.onclick = () => {
+      if (!confirm("이 글을 기록에서 지울까요?")) return;
+      posts = posts.filter((p) => p.id != btn.dataset.del);
+      savePosts(posts);
+      render();
+    }));
+  }
+
+  render();
+</script>
+</body>
+</html>
